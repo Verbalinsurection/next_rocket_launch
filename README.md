@@ -1,6 +1,7 @@
 # Next Rocket Launch
 
 The `Next Rocket Launch` sensor platform allows you to monitor the next rocket launch from Teamup.
+Unlike launch_library, this integration allows you to obtain the next launch information for the rocket name interest you.
 
 ## Installation
 

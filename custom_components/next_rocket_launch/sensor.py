@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 import logging
 
 from ics import Calendar
-import requests
 import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
@@ -12,6 +11,9 @@ from homeassistant.const import ATTR_ATTRIBUTION
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
+import async_timeout
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,12 +32,26 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Create the launch sensor."""
-    ics_data_provider = GetICSData(ICS_URL)
+    session = async_create_clientsession(hass)
+    ics_data_provider = GetICSData(ICS_URL, session, hass)
+
+    async def async_update_data():
+        async with async_timeout.timeout(10):
+            return await ics_data_provider.ics_update()
+
+    coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name="sensor",
+        update_method=async_update_data,
+        update_interval=SCAN_INTERVAL,
+    )
+
+    await coordinator.async_refresh()
 
     nl_sensors = []
     for option in config.get("rocket_name"):
-        _LOGGER.debug("Sensor device - %s", option)
-        nl_sensors.append(GetNextLaunch(option, ics_data_provider))
+        nl_sensors.append(GetNextLaunch(coordinator, option, ics_data_provider))
 
     async_add_entities(nl_sensors, True)
 
@@ -43,44 +59,56 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 class GetICSData:
     """The class for handling the data retrieval."""
 
-    def __init__(self, url):
+    def __init__(self, url, session, hass):
         """Initialize the data object."""
         _LOGGER.debug("Initialize the data object")
         self.url = url
         self.timeline = None
+        self.session = session
+        self.hass = hass
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
+    async def ics_update(self):
         """Get the latest data from ics."""
         _LOGGER.debug("Get the latest data from ics")
 
-        raw_ics_file = requests.get(self.url)
+        async with async_timeout.timeout(10, loop=self.hass.loop):
+            resp = await self.session.get(self.url)
 
-        if raw_ics_file.status_code == 200:
-            try:
-                parsed_ics = Calendar(requests.get(self.url).text)
-                self.timeline = list(parsed_ics.timeline)
-            except ValueError as error:
+            if resp.status == 200:
+                raw_ics_file = await resp.text()
+                try:
+                    parsed_ics = Calendar(raw_ics_file)
+                    self.timeline = list(parsed_ics.timeline)
+                    return self.timeline
+                except ValueError as error:
+                    _LOGGER.error(
+                        "Unable (ValueError) to parse ics file: %s (%s)",
+                        error,
+                        self.url,
+                    )
+                    return False
+                except NotImplementedError as error:
+                    _LOGGER.error(
+                        "Unable (NotImplementedError) to parse ics file: %s (%s)",
+                        error,
+                        self.url,
+                    )
+                    return False
+
+            else:
                 _LOGGER.error(
-                    "Unable (ValueError) to parse ics file: %s (%s)", error, self.url
-                )
-            except NotImplementedError as error:
-                _LOGGER.error(
-                    "Unable (NotImplementedError) to parse ics file: %s (%s)",
-                    error,
+                    "Unable to get ics file: %s (%s)",
+                    raw_ics_file.status_code,
                     self.url,
                 )
-
-        else:
-            _LOGGER.error(
-                "Unable to get ics file: %s (%s)", raw_ics_file.status_code, self.url
-            )
+                return False
 
 
 class GetNextLaunch(Entity):
     """The class for handling the data."""
 
-    def __init__(self, rocket_name, ics_data_provider):
+    def __init__(self, coordinator, rocket_name, ics_data_provider):
         """Initialize the sensor object."""
         _LOGGER.debug("Initialize the sensor object")
         self.ics_data_provider = ics_data_provider
@@ -89,15 +117,20 @@ class GetNextLaunch(Entity):
         self._attributes = {}
         self._state = None
         self.have_futur = False
+        self.coordinator = coordinator
 
     async def async_update(self):
         """Process data."""
         _LOGGER.debug("Start async update for %s", self.name)
 
         self.have_futur = False
-        self.ics_data_provider.update()
 
         if self.ics_data_provider is None:
+            _LOGGER.debug("ICS Data not init")
+            return
+
+        if self.ics_data_provider.timeline is None:
+            _LOGGER.debug("ICS Data timeline not init")
             return
 
         last_passed = None
@@ -160,3 +193,19 @@ class GetNextLaunch(Entity):
             return "timestamp"
 
         return "text"
+
+    @property
+    def available(self):
+        """Return if entity is available."""
+        return self.coordinator.last_update_success
+
+    async def async_added_to_hass(self):
+        """When entity is added to hass."""
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+    # @property
+    # def should_poll(self):
+    #     """No need to poll. Coordinator notifies entity of updates."""
+    #     return False
