@@ -1,3 +1,10 @@
+```
+[![](https://img.shields.io/github/v/release/Verbalinsurection/next_rocket_launch.svg?include_prereleases)](https://github.com/Verbalinsurection/next_rocket_launch/releases)
+![GitHub Release Date](https://img.shields.io/github/release-date/Verbalinsurection/next_rocket_launch)
+[![GitHub](https://img.shields.io/github/license/Verbalinsurection/next_rocket_launch)](LICENSE)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
+```
+
 # Next Rocket Launch
 
 The `Next Rocket Launch` sensor platform allows you to monitor the next rocket launch from Teamup.
