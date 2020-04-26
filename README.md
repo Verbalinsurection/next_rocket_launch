@@ -4,7 +4,7 @@
 ![GitHub Release Date](https://img.shields.io/github/release-date/Verbalinsurection/next_rocket_launch)
 [![GitHub](https://img.shields.io/github/license/Verbalinsurection/next_rocket_launch)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5dc0622c4ce04126b2519aa179770981)](https://www.codacy.com/manual/t.stassinopoulos/next_rocket_launch?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Verbalinsurection/next_rocket_launch&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5dc0622c4ce04126b2519aa179770981)](https://www.codacy.com/manual/t.stassinopoulos/next_rocket_launch?utm_source=github.com&utm_medium=referral&utm_content=Verbalinsurection/next_rocket_launch&utm_campaign=Badge_Grade)
 ![validate](https://github.com/Verbalinsurection/next_rocket_launch/workflows/validate/badge.svg)
 
 The `Next Rocket Launch` sensor platform allows you to monitor the next rocket launch from Teamup.
@@ -46,6 +46,6 @@ sensor:
 
 ### Configuration options
 
-Key | Type | Required | Description
--- | -- | -- | --
-`rocket_name` | `list` | `False` | Name of the rocket to track.(default is `ALL`)
+| Key           | Type   | Required | Description                                    |
+| ------------- | ------ | -------- | ---------------------------------------------- |
+| `rocket_name` | `list` | `False`  | Name of the rocket to track.(default is `ALL`) |
