@@ -107,7 +107,7 @@ class GetICSData:
 
 
 class GetNextLaunch(Entity):
-    
+
     """The class for handling the data."""
 
     def __init__(self, coordinator, rocket_name, ics_data_provider):
