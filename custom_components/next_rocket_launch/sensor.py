@@ -57,6 +57,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
 
 class GetICSData:
+
     """The class for handling the data retrieval."""
 
     def __init__(self, url, session, hass):
@@ -106,6 +107,7 @@ class GetICSData:
 
 
 class GetNextLaunch(Entity):
+
     """The class for handling the data."""
 
     def __init__(self, coordinator, rocket_name, ics_data_provider):
