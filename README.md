@@ -1,16 +1,22 @@
-```
-[![](https://img.shields.io/github/v/release/Verbalinsurection/next_rocket_launch.svg?include_prereleases)](https://github.com/Verbalinsurection/next_rocket_launch/releases)
+# Next Rocket Launch
+
+[![GitHub Release Version](https://img.shields.io/github/v/release/Verbalinsurection/next_rocket_launch.svg?include_prereleases)](https://github.com/Verbalinsurection/next_rocket_launch/releases)
 ![GitHub Release Date](https://img.shields.io/github/release-date/Verbalinsurection/next_rocket_launch)
 [![GitHub](https://img.shields.io/github/license/Verbalinsurection/next_rocket_launch)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
-```
-
-# Next Rocket Launch
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5dc0622c4ce04126b2519aa179770981)](https://www.codacy.com/manual/t.stassinopoulos/next_rocket_launch?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Verbalinsurection/next_rocket_launch&amp;utm_campaign=Badge_Grade)
+![validate](https://github.com/Verbalinsurection/next_rocket_launch/workflows/validate/badge.svg)
 
 The `Next Rocket Launch` sensor platform allows you to monitor the next rocket launch from Teamup.
 Unlike launch_library, this integration allows you to obtain the next launch information for the rocket name interest you.
 
 ## Installation
+
+### Using HACS
+
+The easiest way to add this to your Homeassistant installation is using [HACS](https://hacs.xyz/).
+
+### Manual
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
 2. If you do not have a `custom_components` directory (folder) there, you need to create it.
