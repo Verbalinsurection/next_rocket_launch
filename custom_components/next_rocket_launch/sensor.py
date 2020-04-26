@@ -64,7 +64,6 @@ class GetICSData:
 
     def __init__(self, url, session, hass):
         """Initialize the data object."""
-
         _LOGGER.debug("Initialize the data object")
         self.url = url
         self.timeline = None
@@ -74,7 +73,6 @@ class GetICSData:
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def ics_update(self):
         """Get the latest data from ics."""
-
         _LOGGER.debug("Get the latest data from ics")
 
         async with async_timeout.timeout(10, loop=self.hass.loop):
