@@ -4,8 +4,9 @@
 ![GitHub Release Date](https://img.shields.io/github/release-date/Verbalinsurection/next_rocket_launch)
 [![GitHub](https://img.shields.io/github/license/Verbalinsurection/next_rocket_launch)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5dc0622c4ce04126b2519aa179770981)](https://www.codacy.com/manual/t.stassinopoulos/next_rocket_launch?utm_source=github.com&utm_medium=referral&utm_content=Verbalinsurection/next_rocket_launch&utm_campaign=Badge_Grade)
-![validate](https://github.com/Verbalinsurection/next_rocket_launch/workflows/validate/badge.svg)
+[![CodeFactor](https://www.codefactor.io/repository/github/verbalinsurection/next_rocket_launch/badge)](https://www.codefactor.io/repository/github/verbalinsurection/next_rocket_launch)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Verbalinsurection_next_rocket_launch&metric=alert_status)](https://sonarcloud.io/dashboard?id=Verbalinsurection_next_rocket_launch)
+![validate-HACS](https://github.com/Verbalinsurection/next_rocket_launch/workflows/validate-HACS/badge.svg)
 
 The `Next Rocket Launch` sensor platform allows you to monitor the next rocket launch from Teamup.
 Unlike launch_library, this integration allows you to obtain the next launch information for the rocket name interest you.
