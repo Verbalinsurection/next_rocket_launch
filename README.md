@@ -5,8 +5,9 @@
 [![GitHub](https://img.shields.io/github/license/Verbalinsurection/next_rocket_launch)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 [![CodeFactor](https://www.codefactor.io/repository/github/verbalinsurection/next_rocket_launch/badge)](https://www.codefactor.io/repository/github/verbalinsurection/next_rocket_launch)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Verbalinsurection_next_rocket_launch&metric=alert_status)](https://sonarcloud.io/dashboard?id=Verbalinsurection_next_rocket_launch)
 ![validate-HACS](https://github.com/Verbalinsurection/next_rocket_launch/workflows/validate-HACS/badge.svg)
+
+![App icon](https://brands.home-assistant.io/_/next_rocket_launch/icon.png)
 
 The `Next Rocket Launch` sensor platform allows you to monitor the next rocket launch from Teamup. Detailed information is in French.
 Unlike launch_library, this integration allows you to obtain the next launch information for the rocket name interest you.
