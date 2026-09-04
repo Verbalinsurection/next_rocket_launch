@@ -1,14 +1,22 @@
-name: validate-HACS
+name: validate-cust-int
 
-on: [push]
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
-  validate-HACS:
+  validate-hacs:
+    name: HACS Action
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v2"
-      - name: HACS validation
-        uses: "hacs/integration/action@main"
+      - name: HACS Action
+        uses: "hacs/action@main"
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CATEGORY: "integration"
+          category: "integration"
+
+  hassfest:
+    name: Hassfest
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v7"
+      - uses: "home-assistant/actions/hassfest@master"

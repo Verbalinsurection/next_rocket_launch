@@ -5,7 +5,7 @@
 [![GitHub](https://img.shields.io/github/license/Verbalinsurection/next_rocket_launch)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/custom-components/hacs)
 [![CodeFactor](https://www.codefactor.io/repository/github/verbalinsurection/next_rocket_launch/badge)](https://www.codefactor.io/repository/github/verbalinsurection/next_rocket_launch)
-![validate-HACS](https://github.com/Verbalinsurection/next_rocket_launch/workflows/validate-HACS/badge.svg)
+[![validate-cust-int](https://github.com/Verbalinsurection/next_rocket_launch/actions/workflows/validate.yaml/badge.svg)](https://github.com/Verbalinsurection/next_rocket_launch/actions/workflows/validate.yaml)
 
 ![App icon](https://brands.home-assistant.io/_/next_rocket_launch/icon.png)
 
