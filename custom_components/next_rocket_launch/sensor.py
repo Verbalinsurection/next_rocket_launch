@@ -1,19 +1,35 @@
 """The Next Rocket Launch integration."""
 
-import asyncio
-from datetime import UTC, datetime, timedelta
-import logging
+from __future__ import annotations
 
-from ics import Calendar
+import asyncio
+from datetime import date, datetime, timedelta
+import logging
+from typing import Any
+
+import aiohttp
+from ical.calendar import Calendar
+from ical.calendar_stream import IcsCalendarStream
+from ical.event import Event
+from ical.exceptions import CalendarParseError
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import ATTR_ATTRIBUTION
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.components.sensor import (
+    PLATFORM_SCHEMA as SENSOR_PLATFORM_SCHEMA,
+    SensorDeviceClass,
+    SensorEntity,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.util import Throttle
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
+from homeassistant.util import dt as dt_util, slugify
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,186 +39,187 @@ DEFAULT_ROCKET_NAME = "ALL"
 ICS_URL = "https://ics.teamup.com/feed/ks9mo8bt5a2he89r6j/0.ics"
 ATTRIBUTION = "Data provided by Teamup"
 SCAN_INTERVAL = timedelta(minutes=60)
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
+REQUEST_TIMEOUT = 30
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+PREVIOUS_LOOKBACK = timedelta(days=365)
+FUTURE_HORIZON = timedelta(days=365)
+
+LAUNCH_CATEGORY = "Calendrier NextSpaceFlight"
+
+PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {vol.Optional("rocket_name", default=DEFAULT_ROCKET_NAME): cv.ensure_list}
 )
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+async def async_setup_platform(
+    hass: HomeAssistant,
+    config: ConfigType,
+    async_add_entities: AddEntitiesCallback,
+    discovery_info: DiscoveryInfoType | None = None,
+) -> None:
     """Create the launch sensor."""
-
-    session = async_create_clientsession(hass)
-    ics_data_provider = GetICSData(ICS_URL, session, hass)
-
-    async def async_update_data():
-        async with asyncio.timeout(10):
-            return await ics_data_provider.ics_update()
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="sensor",
-        update_method=async_update_data,
-        update_interval=SCAN_INTERVAL,
-    )
-
+    coordinator = RocketLaunchCoordinator(hass)
     await coordinator.async_refresh()
 
-    nl_sensors = []
-    for option in config.get("rocket_name"):
-        nl_sensors.append(GetNextLaunch(coordinator, option, ics_data_provider))
-
-    async_add_entities(nl_sensors, True)
+    async_add_entities(
+        NextLaunchSensor(coordinator, option) for option in config["rocket_name"]
+    )
 
 
-class GetICSData:
-    """The class for handling the data retrieval."""
+def _as_datetime(value: date | datetime | None) -> datetime | None:
+    """Normalize an event start to an aware datetime.
 
-    def __init__(self, url, session, hass):
-        """Initialize the data object."""
-        _LOGGER.debug("Initialize the data object")
-        self.url = url
-        self.timeline = None
-        self.session = session
-        self.hass = hass
+    All-day events expose a plain ``date``; anchor those to local midnight so
+    they stay comparable with, and publishable as, a timestamp.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return dt_util.as_utc(value)
+    return dt_util.start_of_local_day(datetime(value.year, value.month, value.day))
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def ics_update(self):
+
+class RocketLaunchCoordinator(DataUpdateCoordinator[Calendar]):
+    """Fetch and parse the shared ICS feed once for every sensor."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=None,
+            name=DOMAIN,
+            update_interval=SCAN_INTERVAL,
+        )
+        self._session = async_get_clientsession(hass)
+
+    async def _async_update_data(self) -> Calendar:
         """Get the latest data from ics."""
         _LOGGER.debug("Get the latest data from ics")
 
-        async with asyncio.timeout(10):
-            resp = await self.session.get(self.url)
+        try:
+            async with asyncio.timeout(REQUEST_TIMEOUT):
+                resp = await self._session.get(ICS_URL)
+                if resp.status != 200:
+                    raise UpdateFailed(
+                        f"Unable to get ics file: HTTP {resp.status} ({ICS_URL})"
+                    )
+                raw_ics_file = await resp.text()
+        except TimeoutError as error:
+            raise UpdateFailed(f"Timeout getting ics file ({ICS_URL})") from error
+        except aiohttp.ClientError as error:
+            raise UpdateFailed(
+                f"Unable to get ics file: {error} ({ICS_URL})"
+            ) from error
 
-            if resp.status != 200:
-                _LOGGER.error(
-                    "Unable to get ics file: %s (%s)",
-                    resp.status_code,
-                    self.url,
-                )
-                return False
+        try:
+            calendar = await self.hass.async_add_executor_job(
+                IcsCalendarStream.calendar_from_ics, raw_ics_file
+            )
+        except CalendarParseError as error:
+            raise UpdateFailed(
+                f"Unable to parse ics file: {error} ({ICS_URL})"
+            ) from error
 
-            raw_ics_file = await resp.text()
-            try:
-                parsed_ics = Calendar(raw_ics_file)
-                self.timeline = list(parsed_ics.timeline)
-                return self.timeline
-            except ValueError as error:
-                _LOGGER.error(
-                    "Unable (ValueError) to parse ics file: %s (%s)",
-                    error,
-                    self.url,
-                )
-                return False
-            except NotImplementedError as error:
-                _LOGGER.error(
-                    "Unable (NotImplementedError) to parse ics file: %s (%s)",
-                    error,
-                    self.url,
-                )
-                return False
+        if not any(LAUNCH_CATEGORY in event.categories for event in calendar.events):
+            _LOGGER.warning(
+                "No event categorized as %r in the feed: the previous launch "
+                "will not be reported (%s)",
+                LAUNCH_CATEGORY,
+                ICS_URL,
+            )
+
+        return calendar
 
 
-class GetNextLaunch(Entity):
+class NextLaunchSensor(CoordinatorEntity[RocketLaunchCoordinator], SensorEntity):
     """The class for handling the data."""
 
-    def __init__(self, coordinator, rocket_name, ics_data_provider):
+    _attr_attribution = ATTRIBUTION
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:rocket"
+
+    def __init__(self, coordinator: RocketLaunchCoordinator, rocket_name: str) -> None:
         """Initialize the sensor object."""
         _LOGGER.debug("Initialize the sensor object")
-        self.ics_data_provider = ics_data_provider
-        self.rocket_name = rocket_name
-        self._name = "Next Rocket " + rocket_name
-        self._attributes = {}
-        self._state = None
-        self.have_futur = False
-        self.coordinator = coordinator
+        super().__init__(coordinator)
+        self._rocket_name = rocket_name
+        self._attr_name = f"Next Rocket {rocket_name}"
+        self._attr_unique_id = f"{DOMAIN}_{slugify(rocket_name)}"
+        self._process_calendar()
 
-    async def async_update(self):
+    @callback
+    def _handle_coordinator_update(self) -> None:
         """Process data."""
+        self._process_calendar()
+        super()._handle_coordinator_update()
 
-        _LOGGER.debug("Start async update for %s", self.name)
+    def _matches(self, event: Event) -> bool:
+        """Return True if the event belongs to the tracked rocket."""
+        if self._rocket_name == DEFAULT_ROCKET_NAME:
+            return True
+        return self._rocket_name in (event.summary or "")
 
-        self.have_futur = False
+    @staticmethod
+    def _is_launch(event: Event) -> bool:
+        """Return True for an actual rocket launch."""
+        return LAUNCH_CATEGORY in event.categories
 
-        if self.ics_data_provider is None:
-            _LOGGER.debug("ICS Data not init")
+    @callback
+    def _process_calendar(self) -> None:
+        """Pick the next and previous launch out of the calendar."""
+        _LOGGER.debug("Start update for %s", self._attr_name)
+
+        attributes: dict[str, Any] = {}
+        native_value: datetime | None = None
+
+        calendar = self.coordinator.data
+        if calendar is None:
+            _LOGGER.debug("ICS data not init")
+            self._attr_native_value = native_value
+            self._attr_extra_state_attributes = attributes
             return
 
-        if self.ics_data_provider.timeline is None:
-            _LOGGER.debug("ICS Data timeline not init")
-            return
+        now = dt_util.utcnow()
+        horizon = now + FUTURE_HORIZON
+        previous_event: Event | None = None
+        next_event: Event | None = None
+        next_start: datetime | None = None
 
-        last_passed = None
-        last_futur = None
+        for event in calendar.timeline.start_after(now - PREVIOUS_LOOKBACK):
+            start = _as_datetime(event.dtstart)
+            if start is None:
+                continue
+            if start > horizon:
+                break
+            if not self._matches(event):
+                continue
+            if start < now:
+                if self._is_launch(event):
+                    previous_event = event
+            else:
+                next_event = event
+                next_start = start
+                break
 
-        if self.rocket_name == "ALL":
-            selected_events = self.ics_data_provider.timeline
-        else:
-            selected_events = [
-                x for x in self.ics_data_provider.timeline if self.rocket_name in x.name
-            ]
+        if next_event is not None:
+            native_value = next_start
+            attributes["Comment"] = next_event.summary
+            attributes["Location"] = next_event.location
+            attributes["Url"] = str(next_event.url) if next_event.url else None
 
-        for event in selected_events:
-            if event.begin < datetime.now(UTC):
-                last_passed = event
-            elif not self.have_futur:
-                last_futur = event
-                self.have_futur = True
+        if previous_event is not None:
+            attributes["Previous"] = previous_event.summary
+            previous_start = _as_datetime(previous_event.dtstart)
+            attributes["Previous date"] = (
+                previous_start.isoformat() if previous_start else None
+            )
 
-        if last_futur is not None:
-            self._state = last_futur.begin.isoformat()
-            self._attributes["Comment"] = last_futur.name
-            self._attributes["Location"] = last_futur.location
-            self._attributes["Url"] = last_futur.url
-        else:
-            self._state = "Not planned"
+        attributes["last_update"] = dt_util.now().isoformat()
 
-        if last_passed is not None:
-            self._attributes["Previous"] = last_passed.name
-            self._attributes["Previous date"] = last_passed.begin.format()
+        self._attr_native_value = native_value
+        self._attr_extra_state_attributes = attributes
 
-        self._attributes[ATTR_ATTRIBUTION] = ATTRIBUTION
-        self._attributes["last_update"] = datetime.now()
-
-        _LOGGER.debug("Async update done for %s: %s", self.name, self._state)
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._state
-
-    @property
-    def icon(self):
-        """Return the icon of the sensor."""
-        return "mdi:rocket"
-
-    @property
-    def extra_state_attributes(self):
-        """Return attributes for the sensor."""
-        return self._attributes
-
-    @property
-    def device_class(self):
-        """Return device_class."""
-        if self.have_futur:
-            return "timestamp"
-
-        return "text"
-
-    @property
-    def available(self):
-        """Return if entity is available."""
-        return self.coordinator.last_update_success
-
-    async def async_added_to_hass(self):
-        """When entity is added to hass."""
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
+        _LOGGER.debug(
+            "Update done for %s: %s", self._attr_name, self._attr_native_value
         )
