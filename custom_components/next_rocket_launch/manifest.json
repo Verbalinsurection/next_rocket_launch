@@ -1,18 +1,19 @@
 {
   "domain": "next_rocket_launch",
   "name": "Next Rocket Launch",
-  "documentation": "https://github.com/Verbalinsurection/next_rocket_launch",
-  "issue_tracker": "https://github.com/Verbalinsurection/next_rocket_launch/issues",
-  "version": "1.0.7",
+  "codeowners": [
+    "@Verbalinsurection"
+  ],
   "config_flow": false,
+  "dependencies": [],
+  "documentation": "https://github.com/Verbalinsurection/next_rocket_launch",
+  "homekit": {},
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Verbalinsurection/next_rocket_launch/issues",
   "requirements": [
     "ical>=8.2.0"
   ],
   "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
-  "codeowners": [
-    "@Verbalinsurection"
-  ]
+  "version": "1.0.7",
+  "zeroconf": []
 }
